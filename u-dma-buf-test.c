@@ -106,6 +106,26 @@ void clear_buf_test(unsigned int size, unsigned int sync_mode, int o_sync)
     }
 }
 
+void read_buf_test(unsigned int size, int o_sync)
+{
+    int            fd;
+    unsigned char  attr[1024];
+    struct timeval start_time, end_time;
+    int            error_count;
+    unsigned char* buf;
+
+    if ((fd  = open("/dev/udmabuf0", O_RDWR | o_sync)) != -1) {
+      if ((buf = malloc(size)) != NULL) {
+        gettimeofday(&start_time, NULL);
+        read(fd, (void*)buf, size);
+        gettimeofday(&end_time  , NULL);
+        print_diff_time(start_time, end_time);
+        free(buf);
+        close(fd);
+      }
+    }
+}
+
 void main()
 {
     int            fd;
@@ -115,13 +135,32 @@ void main()
     unsigned long  phys_addr;
     unsigned long  debug_vma = 0;
     unsigned long  sync_mode = 2;
+    int            dma_coherent    = -1;
+    int            quirk_mmap_mode = -1;
+    char*          driver_version  = NULL;
     int            error_count;
     struct timeval start_time, end_time;
+
+    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/driver_version", O_RDONLY)) != -1) {
+      int len;
+      len = read(fd, attr, 1024);
+      while(--len >= 0) {
+        if (attr[len] =='\n') {
+          attr[len] = '\0';
+          break;
+        }
+      }
+      driver_version = strdup(attr);
+      close(fd);
+    }
 
     if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/phys_addr", O_RDONLY)) != -1) {
       read(fd, attr, 1024);
       sscanf(attr, "%lx", &phys_addr);
       close(fd);
+    } else {
+      printf("can not open /sys/class/u-dma-buf/udmabuf0/phys_addr\n");
+      exit(-1);
     }
 
     if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/size"     , O_RDONLY)) != -1) {
@@ -142,6 +181,31 @@ void main()
       close(fd);
     }
 
+    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/dma_coherent", O_RDONLY)) != -1) {
+      read(fd, attr, 1024);
+      sscanf(attr, "%d", &dma_coherent);
+      close(fd);
+    }
+    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/quirk_mmap_mode", O_RDONLY)) != -1) {
+      read(fd, attr, 1024);
+      sscanf(attr, "%d", &quirk_mmap_mode);
+      close(fd);
+    }
+
+    if (driver_version)
+      printf("driver_version=%s\n", driver_version);
+    if (dma_coherent >= 0)
+      printf("dma_coherent=%d\n", dma_coherent);
+    if (quirk_mmap_mode == 0)
+      printf("quirk_mmap=undefined\n");
+    if (quirk_mmap_mode == 1)
+      printf("quirk_mmap=off\n");
+    if (quirk_mmap_mode == 2)
+      printf("quirk_mmap=on\n");
+    if (quirk_mmap_mode == 3)
+      printf("quirk_mmap=auto\n");
+    if (quirk_mmap_mode == 4)
+      printf("quirk_mmap=page\n");
     printf("phys_addr=0x%lx\n", phys_addr);
     printf("size=%d\n", buf_size);
 
