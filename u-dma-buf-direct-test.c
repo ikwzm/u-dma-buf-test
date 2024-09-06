@@ -38,7 +38,7 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int o_direct)
     char*          dump_buf;
     unsigned int   dump_pos;
     ssize_t        dump_size;
-    if ((dump_fd = open("dump_file.dat", O_CREAT | O_WRONLY | o_direct)) == -1) {
+    if ((dump_fd = open("dump_file.dat", O_CREAT | O_WRONLY | O_SYNC | o_direct)) == -1) {
         printf("can not open %s\n", "dump_file.dat");
         exit(-1);
     }
