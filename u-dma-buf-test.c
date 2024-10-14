@@ -4,6 +4,7 @@
 #include        <time.h>
 #include        <stdlib.h>
 #include        <unistd.h>
+#include        <getopt.h>
 #include        <sys/time.h>
 #include        <sys/types.h>
 #include        <sys/mman.h>
@@ -54,67 +55,86 @@ int clear_buf(unsigned char* buf, unsigned int size)
     return error_count;
 }
 
-void check_buf_test(unsigned int size, unsigned int sync_mode, int o_sync)
+void check_buf_test(const char* name, size_t size, unsigned int sync_mode, int o_sync)
 {
     int            fd;
-    unsigned char  attr[1024];
+    char           file_name[1024];
+    char           attr[1024];
     struct timeval start_time, end_time;
     int            error_count;
     unsigned char* buf;
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/sync_mode", O_WRONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/sync_mode", name);
+    if ((fd  = open(file_name, O_WRONLY)) != -1) {
       sprintf(attr, "%d", sync_mode);
       write(fd, attr, strlen(attr));
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
     printf("sync_mode=%d, O_SYNC=%d, ", sync_mode, (o_sync)?1:0);
 
-    if ((fd  = open("/dev/udmabuf0", O_RDWR | o_sync)) != -1) {
+    sprintf(file_name, "/dev/%s", name);
+    if ((fd  = open(file_name, O_RDWR | o_sync)) != -1) {
       buf = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
       gettimeofday(&start_time, NULL);
       error_count = check_buf(buf, size);
       gettimeofday(&end_time  , NULL);
       print_diff_time(start_time, end_time);
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 }
 
-void clear_buf_test(unsigned int size, unsigned int sync_mode, int o_sync)
+void clear_buf_test(char* name, size_t size, unsigned int sync_mode, int o_sync)
 {
     int            fd;
-    unsigned char  attr[1024];
+    char           file_name[1024];
+    char           attr[1024];
     struct timeval start_time, end_time;
     int            error_count;
     unsigned char* buf;
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/sync_mode", O_WRONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/sync_mode", name);
+    if ((fd  = open(file_name, O_WRONLY)) != -1) {
       sprintf(attr, "%d", sync_mode);
       write(fd, attr, strlen(attr));
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
     printf("sync_mode=%d, O_SYNC=%d, ", sync_mode, (o_sync)?1:0);
 
-    if ((fd  = open("/dev/udmabuf0", O_RDWR | o_sync)) != -1) {
+    sprintf(file_name, "/dev/%s", name);
+    if ((fd  = open(file_name, O_RDWR | o_sync)) != -1) {
       buf = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
       gettimeofday(&start_time, NULL);
       error_count = clear_buf(buf, size);
       gettimeofday(&end_time  , NULL);
       print_diff_time(start_time, end_time);
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 }
 
-void read_buf_test(unsigned int size, int o_sync)
+void read_buf_test(char* name, size_t size, int o_sync)
 {
     int            fd;
-    unsigned char  attr[1024];
+    char           file_name[1024];
     struct timeval start_time, end_time;
     int            error_count;
     unsigned char* buf;
 
-    if ((fd  = open("/dev/udmabuf0", O_RDWR | o_sync)) != -1) {
+    sprintf(file_name, "/dev/%s", name);
+    if ((fd  = open(file_name, O_RDWR | o_sync)) != -1) {
       if ((buf = malloc(size)) != NULL) {
         gettimeofday(&start_time, NULL);
         read(fd, (void*)buf, size);
@@ -123,25 +143,52 @@ void read_buf_test(unsigned int size, int o_sync)
         free(buf);
         close(fd);
       }
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 }
 
-void main()
+int main(int argc, char* argv[])
 {
     int            fd;
-    unsigned char  attr[1024];
-    unsigned char* buf;
-    unsigned int   buf_size;
+    char           name[256];
+    char           attr[1024];
+    char           file_name[1024];
+    size_t         buf_size;
     unsigned long  phys_addr;
-    unsigned long  debug_vma = 0;
-    unsigned long  sync_mode = 2;
+    unsigned long  debug_vma       = 0;
+    unsigned long  sync_mode       = 2;
     int            dma_coherent    = -1;
     int            quirk_mmap_mode = -1;
     char*          driver_version  = NULL;
-    int            error_count;
-    struct timeval start_time, end_time;
+    int            verbose         = 0;
+    int            opt;
+    int            optindex;
+    struct option  longopts[] = {
+      { "name"      , required_argument, NULL, 'n'},
+      { "verbose"   , no_argument      , NULL, 'v'},
+      { NULL        , 0                , NULL,  0 },
+    };
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/driver_version", O_RDONLY)) != -1) {
+    strncpy(name, "udmabuf0", sizeof(name));
+    while ((opt = getopt_long(argc, argv, "n:", longopts, &optindex)) != -1) {
+      switch (opt) {
+        case 'n':
+          strncpy(name, optarg, sizeof(name));
+          break;
+        case 'v':
+          verbose = 1;
+          break;
+        default:
+          printf("error options\n");
+          break;
+      }
+    }
+    printf("device=%s\n", name);
+
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/driver_version", name);
+    if ((fd  = open(file_name, O_RDONLY)) != -1) {
       int len;
       len = read(fd, attr, 1024);
       while(--len >= 0) {
@@ -152,44 +199,69 @@ void main()
       }
       driver_version = strdup(attr);
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/phys_addr", O_RDONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/phys_addr", name);
+    if ((fd  = open(file_name, O_RDONLY)) != -1) {
       read(fd, attr, 1024);
       sscanf(attr, "%lx", &phys_addr);
       close(fd);
     } else {
-      printf("can not open /sys/class/u-dma-buf/udmabuf0/phys_addr\n");
+      perror(file_name);
       exit(-1);
     }
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/size"     , O_RDONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/size", name);
+    if ((fd  = open(file_name, O_RDONLY)) != -1) {
       read(fd, attr, 1024);
-      sscanf(attr, "%d", &buf_size);
+      sscanf(attr, "%ld", &buf_size);
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/sync_mode", O_WRONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/sync_mode", name);
+    if ((fd  = open(file_name, O_WRONLY)) != -1) {
       sprintf(attr, "%ld", sync_mode);
       write(fd, attr, strlen(attr));
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/debug_vma", O_WRONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/debug_vma", name);
+    if ((fd  = open(file_name, O_WRONLY)) != -1) {
       sprintf(attr, "%ld", debug_vma);
       write(fd, attr, strlen(attr));
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/dma_coherent", O_RDONLY)) != -1) {
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/dma_coherent", name);
+    if ((fd  = open(file_name, O_RDONLY)) != -1) {
       read(fd, attr, 1024);
       sscanf(attr, "%d", &dma_coherent);
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
-    if ((fd  = open("/sys/class/u-dma-buf/udmabuf0/quirk_mmap_mode", O_RDONLY)) != -1) {
+    
+    sprintf(file_name, "/sys/class/u-dma-buf/%s/quirk_mmap_mode", name);
+    if ((fd  = open(file_name, O_RDONLY)) != -1) {
       read(fd, attr, 1024);
       sscanf(attr, "%d", &quirk_mmap_mode);
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
     if (driver_version)
@@ -207,50 +279,54 @@ void main()
     if (quirk_mmap_mode == 4)
       printf("quirk_mmap=page\n");
     printf("phys_addr=0x%lx\n", phys_addr);
-    printf("size=%d\n", buf_size);
+    printf("size=%ld\n", buf_size);
 
-    if ((fd  = open("/dev/udmabuf0", O_RDWR)) != -1) {
+    sprintf(file_name, "/dev/%s", name);
+    if ((fd  = open(file_name, O_RDWR)) != -1) {
       long last_pos = lseek(fd, 0, 2);
       if (last_pos == -1) {
         printf("lseek error\n");
         exit(-1);
       }
       close(fd);
+    } else {
+      perror(file_name);
+      exit(-1);
     }
 
     printf("check_buf()\n");
-    check_buf_test(buf_size, 0, 0);
-    check_buf_test(buf_size, 0, O_SYNC);
-    check_buf_test(buf_size, 1, 0);
-    check_buf_test(buf_size, 1, O_SYNC);
-    check_buf_test(buf_size, 2, 0);
-    check_buf_test(buf_size, 2, O_SYNC);
-    check_buf_test(buf_size, 3, 0);
-    check_buf_test(buf_size, 3, O_SYNC);
-    check_buf_test(buf_size, 4, 0);
-    check_buf_test(buf_size, 4, O_SYNC);
-    check_buf_test(buf_size, 5, 0);
-    check_buf_test(buf_size, 5, O_SYNC);
-    check_buf_test(buf_size, 6, 0);
-    check_buf_test(buf_size, 6, O_SYNC);
-    check_buf_test(buf_size, 7, 0);
-    check_buf_test(buf_size, 7, O_SYNC);
+    check_buf_test(name, buf_size, 0, 0);
+    check_buf_test(name, buf_size, 0, O_SYNC);
+    check_buf_test(name, buf_size, 1, 0);
+    check_buf_test(name, buf_size, 1, O_SYNC);
+    check_buf_test(name, buf_size, 2, 0);
+    check_buf_test(name, buf_size, 2, O_SYNC);
+    check_buf_test(name, buf_size, 3, 0);
+    check_buf_test(name, buf_size, 3, O_SYNC);
+    check_buf_test(name, buf_size, 4, 0);
+    check_buf_test(name, buf_size, 4, O_SYNC);
+    check_buf_test(name, buf_size, 5, 0);
+    check_buf_test(name, buf_size, 5, O_SYNC);
+    check_buf_test(name, buf_size, 6, 0);
+    check_buf_test(name, buf_size, 6, O_SYNC);
+    check_buf_test(name, buf_size, 7, 0);
+    check_buf_test(name, buf_size, 7, O_SYNC);
 
     printf("clear_buf()\n");
-    clear_buf_test(buf_size, 0, 0);
-    clear_buf_test(buf_size, 0, O_SYNC);
-    clear_buf_test(buf_size, 1, 0);
-    clear_buf_test(buf_size, 1, O_SYNC);
-    clear_buf_test(buf_size, 2, 0);
-    clear_buf_test(buf_size, 2, O_SYNC);
-    clear_buf_test(buf_size, 3, 0);
-    clear_buf_test(buf_size, 3, O_SYNC);
-    clear_buf_test(buf_size, 4, 0);
-    clear_buf_test(buf_size, 4, O_SYNC);
-    clear_buf_test(buf_size, 5, 0);
-    clear_buf_test(buf_size, 5, O_SYNC);
-    clear_buf_test(buf_size, 6, 0);
-    clear_buf_test(buf_size, 6, O_SYNC);
-    clear_buf_test(buf_size, 7, 0);
-    clear_buf_test(buf_size, 7, O_SYNC);
+    clear_buf_test(name, buf_size, 0, 0);
+    clear_buf_test(name, buf_size, 0, O_SYNC);
+    clear_buf_test(name, buf_size, 1, 0);
+    clear_buf_test(name, buf_size, 1, O_SYNC);
+    clear_buf_test(name, buf_size, 2, 0);
+    clear_buf_test(name, buf_size, 2, O_SYNC);
+    clear_buf_test(name, buf_size, 3, 0);
+    clear_buf_test(name, buf_size, 3, O_SYNC);
+    clear_buf_test(name, buf_size, 4, 0);
+    clear_buf_test(name, buf_size, 4, O_SYNC);
+    clear_buf_test(name, buf_size, 5, 0);
+    clear_buf_test(name, buf_size, 5, O_SYNC);
+    clear_buf_test(name, buf_size, 6, 0);
+    clear_buf_test(name, buf_size, 6, O_SYNC);
+    clear_buf_test(name, buf_size, 7, 0);
+    clear_buf_test(name, buf_size, 7, O_SYNC);
 }
