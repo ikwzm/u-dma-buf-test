@@ -239,9 +239,6 @@ int main(int argc, char* argv[])
       sprintf(attr, "%ld", debug_vma);
       write(fd, attr, strlen(attr));
       close(fd);
-    } else {
-      perror(file_name);
-      exit(-1);
     }
 
     sprintf(file_name, "/sys/class/u-dma-buf/%s/dma_coherent", name);
@@ -249,9 +246,6 @@ int main(int argc, char* argv[])
       read(fd, attr, 1024);
       sscanf(attr, "%d", &dma_coherent);
       close(fd);
-    } else {
-      perror(file_name);
-      exit(-1);
     }
     
     sprintf(file_name, "/sys/class/u-dma-buf/%s/quirk_mmap_mode", name);
@@ -259,9 +253,6 @@ int main(int argc, char* argv[])
       read(fd, attr, 1024);
       sscanf(attr, "%d", &quirk_mmap_mode);
       close(fd);
-    } else {
-      perror(file_name);
-      exit(-1);
     }
 
     if (driver_version)
