@@ -80,12 +80,12 @@ int  check_device_info(const char* device_name, u_dma_buf_ioctl_dev_info* dev_in
         exit(-1);
     }
     read(fd, attr, sizeof(attr));
-    sscanf(attr, "%ld", &size);
+    sscanf(attr, "%" SCNu64, &size);
     close(fd);
 
     if (size != dev_info->size) {
         printf("read %s => %s\n", file_name, attr);
-        printf("mismatch size(=%ld)\n", dev_info->size);
+        printf("mismatch size(=%" PRIu64 ")\n", dev_info->size);
         exit(-1);
     }
     
@@ -95,12 +95,12 @@ int  check_device_info(const char* device_name, u_dma_buf_ioctl_dev_info* dev_in
         exit(-1);
     }
     read(fd, attr, sizeof(attr));
-    sscanf(attr, "%lx", &phys_addr);
+    sscanf(attr, "%" SCNx64, &phys_addr);
     close(fd);
 
     if (phys_addr != dev_info->addr) {
         printf("read %s => %s\n", file_name, attr);
-        printf("mismatch size(=0x%lX\n)\n", dev_info->addr);
+        printf("mismatch phys_addr (=0x%" PRIx64 ")\n", dev_info->addr);
         exit(-1);
     }
 }
@@ -117,7 +117,7 @@ int read_sync_variables(char* device_name, uint64_t* sync_offset, uint64_t* sync
         exit(-1);
     }
     read(fd, attr, sizeof(attr));
-    sscanf(attr, "%lx", sync_offset);
+    sscanf(attr, "%" SCNx64, sync_offset);
     close(fd);
 
     sprintf(file_name, "/sys/class/u-dma-buf/%s/sync_size", device_name);
@@ -126,7 +126,7 @@ int read_sync_variables(char* device_name, uint64_t* sync_offset, uint64_t* sync
         exit(-1);
     }
     read(fd, attr, sizeof(attr));
-    sscanf(attr, "%ld", sync_size);
+    sscanf(attr, "%" SCNu64, sync_size);
     close(fd);
 
     sprintf(file_name, "/sys/class/u-dma-buf/%s/sync_direction", device_name);
@@ -253,10 +253,10 @@ int check_ioctl_set_sync(char* driver_name, int u_dma_buf_fd, u_dma_buf_ioctl_sy
 	
     if (1) {
         printf("U_DMA_BUF_IOCTL_SET_SYNC: SET\n");
-	printf("    sync_offset    : %ld\n", sync_offset   );
-	printf("    sync_size      : %ld\n", sync_size     );
-	printf("    sync_direction : %d\n" , sync_direction);
-	printf("    sync_command   : %d\n" , sync_command  );
+	printf("    sync_offset    : %" PRIu64 "\n", sync_offset   );
+	printf("    sync_size      : %" PRIu64 "\n", sync_size     );
+	printf("    sync_direction : %d\n"         , sync_direction);
+	printf("    sync_command   : %d\n"         , sync_command  );
     }
     status = xioctl(u_dma_buf_fd, U_DMA_BUF_IOCTL_SET_SYNC, sync_args);
     if (status != 0) {
@@ -273,11 +273,11 @@ int check_ioctl_set_sync(char* driver_name, int u_dma_buf_fd, u_dma_buf_ioctl_sy
     status = read_sync_variables(driver_name, &var_sync_offset, &var_sync_size, &var_sync_direction, &var_sync_owner, &var_sync_for_cpu, &var_sync_for_device, &var_sync_mode);
     if (1) {
         printf("U_DMA_BUF_IOCTL_SET_SYNC: READ VARIABLES\n");
-	printf("    sync_offset    : %ld\n", var_sync_offset   );
-	printf("    sync_size      : %ld\n", var_sync_size     );
-	printf("    sync_direction : %d\n" , var_sync_direction);
-	printf("    sync_owner     : %d\n" , var_sync_owner    );
-	printf("    sync_mode      : %d\n" , var_sync_mode     );
+	printf("    sync_offset    : %" PRIu64 "\n", var_sync_offset   );
+	printf("    sync_size      : %" PRIu64 "\n", var_sync_size     );
+	printf("    sync_direction : %d\n"         , var_sync_direction);
+	printf("    sync_owner     : %d\n"         , var_sync_owner    );
+	printf("    sync_mode      : %d\n"         , var_sync_mode     );
     }
     if (var_sync_for_cpu != 0) {
 	printf("%s: sync_for_cpu is not 0\n", __func__);
@@ -289,13 +289,13 @@ int check_ioctl_set_sync(char* driver_name, int u_dma_buf_fd, u_dma_buf_ioctl_sy
     }
     if (sync_offset != 0) {
 	if (var_sync_offset != sync_offset) {
-            printf("%s: sync_offset mismatch (set=%ld, var=%ld)\n", __func__, sync_offset, var_sync_offset);
+            printf("%s: sync_offset mismatch (set=%" PRIu64 ", var=%" PRIu64 ")\n", __func__, sync_offset, var_sync_offset);
 	    status = -1;
         }
     }
     if (sync_size != 0) {
 	if (var_sync_size != sync_size) {
-            printf("%s: sync_size mismatch (set=%ld, var=%ld)\n", __func__, sync_size, var_sync_size);
+            printf("%s: sync_size mismatch (set=%" PRIu64 ", var=%" PRIu64 ")\n", __func__, sync_size, var_sync_size);
 	    status = -1;
         }
     }
@@ -773,8 +773,8 @@ int main(int argc, char* argv[])
         exit(-1);
     } else {
         printf("U_DMA_BUF_IOCTL_GET_DEV_INFO: \n");
-        printf("    size           : %ld\n"   , u_dma_buf_dev_info.size);
-        printf("    phys_addr      : 0x%lX\n" , u_dma_buf_dev_info.addr);
+        printf("    size           : %"   PRIu64 "\n" , u_dma_buf_dev_info.size);
+        printf("    phys_addr      : 0x%" PRIx64 "\n" , u_dma_buf_dev_info.addr);
         printf("    dma_mask       : %d\n"    , GET_U_DMA_BUF_IOCTL_FLAGS_DMA_MASK(&u_dma_buf_dev_info));
     }
     //
@@ -786,7 +786,7 @@ int main(int argc, char* argv[])
         exit(-1);
     } else {
         printf("U_DMA_BUF_IOCTL_GET_SIZE: \n");
-        printf("    size           : %ld\n"   , u_dma_buf_size);
+        printf("    size           : %" PRIu64 "\n"   , u_dma_buf_size);
     }
     if (u_dma_buf_size != u_dma_buf_dev_info.size) {
         printf("mismatch buffer size\n");
@@ -801,7 +801,7 @@ int main(int argc, char* argv[])
         exit(-1);
     } else {
         printf("U_DMA_BUF_IOCTL_GET_DMA_ADDR: \n");
-        printf("    phys_addr      : 0x%lX\n" , u_dma_buf_phys_addr);
+        printf("    phys_addr      : 0x%" PRIx64 "\n" , u_dma_buf_phys_addr);
     }
     if (u_dma_buf_phys_addr != u_dma_buf_dev_info.addr) {
         printf("mismatch phys_addr\n");
