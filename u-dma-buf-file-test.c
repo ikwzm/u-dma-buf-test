@@ -20,6 +20,7 @@ struct u_dma_buf
     char*  sys_path;
     char*  version;
     size_t size;
+    int    dma_coherent;
     int    sync_for_cpu_file;
     int    sync_for_dev_file;
     char   sync_command[1024];
@@ -92,6 +93,15 @@ struct u_dma_buf* u_dma_buf_create(char* name)
           }
         }
         this->version = strdup(attr);
+        close(fd);
+    } else {
+        printf("Can not open %s\n", file_name);
+        goto failed;
+    } 
+    str_len = sprintf(file_name, "%s/dma_coherent", this->sys_path);
+    if ((fd = open(file_name, O_RDONLY)) != -1) {
+        read(fd, attr, 1024);
+        sscanf(attr, "%d", &this->dma_coherent);
         close(fd);
     } else {
         printf("Can not open %s\n", file_name);
@@ -364,8 +374,9 @@ int main(int argc, char* argv[])
     if ((u_dma_buf = u_dma_buf_create(device_name)) == NULL) {
         goto done;
     }
-    printf("driver_version=%s\n", u_dma_buf->version);
-    printf("size=%ld\n"         , u_dma_buf->size   );
+    printf("driver_version=%s\n", u_dma_buf->version     );
+    printf("size=%ld\n"         , u_dma_buf->size        );
+    printf("dma_coherent=%d\n"  , u_dma_buf->dma_coherent);
     //
     // initilize buffers 
     //
