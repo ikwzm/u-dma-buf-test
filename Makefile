@@ -27,5 +27,5 @@ u-dma-buf-file-test: u-dma-buf-file-test.c
 	$(CC) $(CC_OPTIONS) -o $@ $<
 
 u-dma-buf-uring-test: u-dma-buf-uring-test.c
-	$(CC) $(CC_OPTIONS) -luring -o $@ $<
+	$(CC) $(CC_OPTIONS) -o $@ $< -luring 
 
