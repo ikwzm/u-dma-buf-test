@@ -73,7 +73,7 @@ void main(int argc, char* argv[])
     int            dma_coherent    = -1;
     int            quirk_mmap_mode = -1;
     char*          driver_version  = NULL;
-    int            try_count       = 5;
+    int            try_count       = 10;
     int            verbose         = 0;
     int            opt;
     int            optindex;
