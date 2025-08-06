@@ -3,6 +3,7 @@ TESTS = u-dma-buf-test        \
         u-dma-buf-direct-test \
         u-dma-buf-ioctl-test  \
         u-dma-buf-file-test   \
+	u-dma-buf-uring-test  \
         $(END_LIST)
 
 DELETE     := -rm
