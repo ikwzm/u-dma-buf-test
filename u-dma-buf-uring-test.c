@@ -27,7 +27,7 @@ void print_diff_time(struct timeval start_time, struct timeval end_time)
     printf("time = %ld.%06ld sec\n", diff_time.tv_sec, diff_time.tv_usec);
 }
 
-void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size)
+void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int o_direct)
 {
     struct timeval start_time, end_time;
     int*           word_buf  = (int*)udmabuf_map;
@@ -40,7 +40,7 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size)
     int            dump_fd;
     char*          dump_buf  = (char*)udmabuf_map;
     ssize_t        dump_size = udmabuf_size;
-    if ((dump_fd = open("dump_file.dat", O_CREAT | O_WRONLY)) == -1) {
+    if ((dump_fd = open("dump_file.dat", O_CREAT | O_WRONLY | O_SYNC | o_direct)) == -1) {
         printf("can not open %s\n", "dump_file.dat");
         exit(-1);
     }
@@ -57,6 +57,10 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size)
 
     struct io_uring_cqe* cqe;
     io_uring_wait_cqe(&ring, &cqe);
+    if (cqe->res < 0) {
+      printf("write error(%d=%s)\n", -cqe->res, strerror(-cqe->res));
+      exit(-1);
+    }
     io_uring_cqe_seen(&ring, cqe);
 
     gettimeofday(&end_time  , NULL);
@@ -174,9 +178,14 @@ void main(int argc, char* argv[])
       exit(-1);
     }
 
-    printf("write_buf_test(size=%d)\n", udmabuf_size);
+    printf("write_buf_test(size=%d, O_DIRECT=0)\n", udmabuf_size);
     for (int i = 0; i < try_count; i++) {
-        write_buf_test(udmabuf_map, udmabuf_size);
+        write_buf_test(udmabuf_map, udmabuf_size, 0);
+    }
+
+    printf("write_buf_test(size=%d, O_DIRECT=1)\n", udmabuf_size);
+    for (int i = 0; i < try_count; i++) {
+        write_buf_test(udmabuf_map, udmabuf_size, O_DIRECT);
     }
 
     munmap(udmabuf_map, udmabuf_size);
