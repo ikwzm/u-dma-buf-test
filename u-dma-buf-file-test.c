@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
     };
 
     strncpy(device_name, "udmabuf0", sizeof(device_name));
-    while ((opt = getopt_long(argc, argv, "n:", longopts, &optindex)) != -1) {
+    while ((opt = getopt_long(argc, argv, "n:v", longopts, &optindex)) != -1) {
       switch (opt) {
         case 'n':
           strncpy(device_name, optarg, sizeof(device_name));

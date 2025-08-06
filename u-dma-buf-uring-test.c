@@ -85,19 +85,21 @@ void main(int argc, char* argv[])
     int            optindex;
     struct option  longopts[] = {
       { "name"      , required_argument, NULL, 'n'},
-      { "t"         , required_argument, NULL, 't'},
+      { "try"       , required_argument, NULL, 't'},
       { "verbose"   , no_argument      , NULL, 'v'},
       { NULL        , 0                , NULL,  0 },
     };
 
     strncpy(device_name, "udmabuf0", sizeof(device_name));
-    while ((opt = getopt_long(argc, argv, "n:", longopts, &optindex)) != -1) {
+    while ((opt = getopt_long(argc, argv, "n:t:v", longopts, &optindex)) != -1) {
       switch (opt) {
         case 'n':
           strncpy(device_name, optarg, sizeof(device_name));
           break;
         case 't':
-          scanf(optarg, "%d", &try_count);
+          if (sscanf(optarg, "%d", &try_count) != 1) {
+              printf("error options -t %s\n", optarg);
+          }
           break;
         case 'v':
           verbose = 1;
