@@ -12,7 +12,7 @@
 			udmabuf0 {
 				compatible  = "ikwzm,u-dma-buf";
 				device-name = "udmabuf0";
-				size = <0x01000000>;
+				size = <0x02000000>;
 				dma-coherent;
 				quirk-mmap-page;
 	                };
