@@ -188,6 +188,7 @@ void main(int argc, char* argv[])
         printf("can not open %s\n", output_name);
         exit(-1);
     }
+    fallocate(output_fd, 0, 0, udmabuf_size);
     for (int i = 0; i < try_count; i++) {
         write_buf_test(udmabuf_map, udmabuf_size, output_fd);
     }
@@ -199,6 +200,7 @@ void main(int argc, char* argv[])
         printf("can not open %s\n", output_name);
         exit(-1);
     }
+    fallocate(output_fd, 0, 0, udmabuf_size);
     for (int i = 0; i < try_count; i++) {
         write_buf_test(udmabuf_map, udmabuf_size, output_fd);
     }
