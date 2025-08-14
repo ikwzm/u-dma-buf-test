@@ -27,7 +27,7 @@ void print_diff_time(struct timeval start_time, struct timeval end_time)
     printf("time = %ld.%06ld sec\n", diff_time.tv_sec, diff_time.tv_usec);
 }
 
-void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int o_direct)
+void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int output_fd)
 {
     struct timeval start_time, end_time;
     int*           word_buf  = (int*)udmabuf_map;
@@ -37,13 +37,8 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int o_direct)
         word_buf[word_pos] = 0;
     }
 
-    int            dump_fd;
     char*          dump_buf  = (char*)udmabuf_map;
     ssize_t        dump_size = udmabuf_size;
-    if ((dump_fd = open("dump_file.dat", O_CREAT | O_WRONLY | O_SYNC | o_direct)) == -1) {
-        printf("can not open %s\n", "dump_file.dat");
-        exit(-1);
-    }
 
     gettimeofday(&start_time, NULL);
 
@@ -51,7 +46,7 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int o_direct)
     io_uring_queue_init(8, &ring, 0);
 
     struct io_uring_sqe* sqe = io_uring_get_sqe(&ring);
-    io_uring_prep_write(sqe, dump_fd, dump_buf, dump_size, 0);
+    io_uring_prep_write(sqe, output_fd, dump_buf, dump_size, 0);
 
     io_uring_submit(&ring);
 
@@ -65,14 +60,13 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int o_direct)
 
     gettimeofday(&end_time  , NULL);
     print_diff_time(start_time, end_time);
-    close(dump_fd);
 }
 
 void main(int argc, char* argv[])
 {
     char           device_name[256];
     char           file_name[1024];
-    unsigned char  attr[1024];
+    char           attr[1024];
     int            udmabuf_fd;
     void*          udmabuf_map;
     unsigned int   udmabuf_size;
@@ -81,20 +75,27 @@ void main(int argc, char* argv[])
     char*          driver_version  = NULL;
     int            try_count       = 10;
     int            verbose         = 0;
+    char           output_name[256];
+    int            output_fd;
     int            opt;
     int            optindex;
     struct option  longopts[] = {
       { "name"      , required_argument, NULL, 'n'},
+      { "output"    , required_argument, NULL, 'o'},
       { "try"       , required_argument, NULL, 't'},
       { "verbose"   , no_argument      , NULL, 'v'},
       { NULL        , 0                , NULL,  0 },
     };
 
-    strncpy(device_name, "udmabuf0", sizeof(device_name));
-    while ((opt = getopt_long(argc, argv, "n:t:v", longopts, &optindex)) != -1) {
+    strncpy(device_name, "udmabuf0"     , sizeof(device_name));
+    strncpy(output_name, "dump_file.dat", sizeof(output_name));
+    while ((opt = getopt_long(argc, argv, "n:o:t:v", longopts, &optindex)) != -1) {
       switch (opt) {
         case 'n':
           strncpy(device_name, optarg, sizeof(device_name));
+          break;
+        case 'o':
+          strncpy(output_name, optarg, sizeof(output_name));
           break;
         case 't':
           if (sscanf(optarg, "%d", &try_count) != 1) {
@@ -167,6 +168,7 @@ void main(int argc, char* argv[])
     if (quirk_mmap_mode == 4)
       printf("quirk_mmap=page\n");
     printf("size=%d\n", udmabuf_size);
+    printf("output=%s\n", output_name);
 
     sprintf(file_name, "/dev/%s", device_name);
     if ((udmabuf_fd  = open(file_name, O_RDWR)) == -1) {
@@ -181,14 +183,26 @@ void main(int argc, char* argv[])
     }
 
     printf("write_buf_test(size=%d, O_DIRECT=0)\n", udmabuf_size);
-    for (int i = 0; i < try_count; i++) {
-        write_buf_test(udmabuf_map, udmabuf_size, 0);
+    output_fd = open(output_name, O_CREAT | O_WRONLY | O_SYNC);
+    if (output_fd == -1) {
+        printf("can not open %s\n", output_name);
+        exit(-1);
     }
+    for (int i = 0; i < try_count; i++) {
+        write_buf_test(udmabuf_map, udmabuf_size, output_fd);
+    }
+    close(output_fd);
 
     printf("write_buf_test(size=%d, O_DIRECT=1)\n", udmabuf_size);
-    for (int i = 0; i < try_count; i++) {
-        write_buf_test(udmabuf_map, udmabuf_size, O_DIRECT);
+    output_fd = open(output_name, O_CREAT | O_WRONLY | O_SYNC | O_DIRECT);
+    if (output_fd == -1) {
+        printf("can not open %s\n", output_name);
+        exit(-1);
     }
+    for (int i = 0; i < try_count; i++) {
+        write_buf_test(udmabuf_map, udmabuf_size, output_fd);
+    }
+    close(output_fd);
 
     munmap(udmabuf_map, udmabuf_size);
     close(udmabuf_fd);
