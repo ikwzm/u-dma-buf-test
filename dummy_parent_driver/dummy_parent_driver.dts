@@ -1,0 +1,20 @@
+/dts-v1/; /plugin/;
+/ {
+	fragment@0 {
+		target-path = "/amba_pl@0";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		__overlay__ {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dummy_parent {
+				compatible = "ikwzm,dummy_parent";
+	                };
+			udmabuf0 {
+				compatible = "ikwzm,u-dma-buf";
+				size = <4096>;
+			};
+		};
+	};
+};
+		
