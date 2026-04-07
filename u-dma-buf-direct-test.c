@@ -12,30 +12,22 @@
 #include        <sys/stat.h>
 #include        <sys/mman.h>
 #include        <sys/utsname.h>
+#include        <inttypes.h>
 
-void print_diff_time(struct timeval start_time, struct timeval end_time)
+static void diff_time(struct timeval* run_time, struct timeval* start_time, struct timeval* end_time)
 {
-    struct timeval diff_time;
-    if (end_time.tv_usec < start_time.tv_usec) {
-        diff_time.tv_sec  = end_time.tv_sec  - start_time.tv_sec  - 1;
-        diff_time.tv_usec = end_time.tv_usec - start_time.tv_usec + 1000*1000;
+    if (end_time->tv_usec < start_time->tv_usec) {
+        run_time->tv_sec  = end_time->tv_sec  - start_time->tv_sec  - 1;
+        run_time->tv_usec = end_time->tv_usec - start_time->tv_usec + 1000*1000;
     } else {
-        diff_time.tv_sec  = end_time.tv_sec  - start_time.tv_sec ;
-        diff_time.tv_usec = end_time.tv_usec - start_time.tv_usec;
+        run_time->tv_sec  = end_time->tv_sec  - start_time->tv_sec ;
+        run_time->tv_usec = end_time->tv_usec - start_time->tv_usec;
     }
-    printf("time = %ld.%06ld sec\n", diff_time.tv_sec, diff_time.tv_usec);
 }
 
-void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int output_fd)
+void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int output_fd, struct timeval* run_time)
 {
     struct timeval start_time, end_time;
-    int*           word_buf  = (int*)udmabuf_map;
-    int            word_pos  = 0;
-    int            word_size = udmabuf_size/sizeof(int);
-    for(word_pos = 0; word_pos < word_size; word_pos++) {
-        word_buf[word_pos] = 0;
-    }
-
     char*          dump_buf  = (char*)udmabuf_map;
     ssize_t        dump_size = udmabuf_size;
     unsigned int   dump_pos  = 0;
@@ -51,7 +43,17 @@ void write_buf_test(void* udmabuf_map, unsigned int udmabuf_size, int output_fd)
         dump_size -= write_size;
     }
     gettimeofday(&end_time  , NULL);
-    print_diff_time(start_time, end_time);
+    diff_time(run_time, &start_time, &end_time);
+    printf("time = %ld.%06ld sec\n", run_time->tv_sec, run_time->tv_usec);
+}
+
+uint32_t xorshift32(uint32_t* state)
+{
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x <<  5;
+    return *state = x;
 }
 
 void main(int argc, char* argv[])
@@ -66,7 +68,11 @@ void main(int argc, char* argv[])
     int            quirk_mmap_mode = -1;
     char*          driver_version  = NULL;
     int            try_count       = 10;
+    uint32_t       random_seed     = 2463534242;
     int            verbose         = 0;
+    struct timeval run_time;
+    uint64_t       total_usec;
+    uint64_t       total_size;
     char           output_name[256];
     int            output_fd;
     int            opt;
@@ -172,6 +178,14 @@ void main(int argc, char* argv[])
     if (udmabuf_map == MAP_FAILED) {
       printf("can not mmap\n");
       exit(-1);
+    } else {
+      uint32_t  state     = random_seed;
+      uint32_t* word_buf  = (uint32_t*)udmabuf_map;
+      int       pos       = 0;
+      int       words     = udmabuf_size/sizeof(uint32_t);
+      for(pos = 0; pos < words; pos++) {
+        word_buf[pos] = xorshift32(&state);
+      }
     }
 
     printf("write_buf_test(size=%d, O_DIRECT=0)\n", udmabuf_size);
@@ -181,9 +195,15 @@ void main(int argc, char* argv[])
         exit(-1);
     }
     fallocate(output_fd, 0, 0, udmabuf_size);
+    total_size = 0;
+    total_usec = 0;
     for (int i = 0; i < try_count; i++) {
-        write_buf_test(udmabuf_map, udmabuf_size, output_fd);
+        write_buf_test(udmabuf_map, udmabuf_size, output_fd, &run_time);
+        total_size += udmabuf_size;
+        total_usec += ((int64_t)run_time.tv_sec*(1000*1000) +
+                       (int64_t)run_time.tv_usec);
     }
+    printf("throughput=%5.1f MBytes/sec\n", (double)total_size/((double)total_usec));
     close(output_fd);
 
     printf("write_buf_test(size=%d, O_DIRECT=1)\n", udmabuf_size);
@@ -193,9 +213,15 @@ void main(int argc, char* argv[])
         exit(-1);
     }
     fallocate(output_fd, 0, 0, udmabuf_size);
+    total_size = 0;
+    total_usec = 0;
     for (int i = 0; i < try_count; i++) {
-        write_buf_test(udmabuf_map, udmabuf_size, output_fd);
+        write_buf_test(udmabuf_map, udmabuf_size, output_fd, &run_time);
+        total_size += udmabuf_size;
+        total_usec += ((int64_t)run_time.tv_sec*(1000*1000) +
+                       (int64_t)run_time.tv_usec);
     }
+    printf("throughput=%5.1f MBytes/sec\n", (double)total_size/((double)total_usec));
     close(output_fd);
 
     munmap(udmabuf_map, udmabuf_size);
