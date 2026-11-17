@@ -1,6 +1,6 @@
 /*********************************************************************************
  *
- *       Copyright (C) 2015-2024 Ichiro Kawazome
+ *       Copyright (C) 2015-2026 Ichiro Kawazome
  *       All rights reserved.
  * 
  *       Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,9 @@
 
 #define DEFINE_U_DMA_BUF_IOCTL_FLAGS(name,type,lo,hi)                     \
 static const  int      U_DMA_BUF_IOCTL_FLAGS_ ## name ## _SHIFT = (lo);   \
-static const  uint64_t U_DMA_BUF_IOCTL_FLAGS_ ## name ## _MASK  = (((uint64_t)1UL << ((hi)-(lo)+1))-1); \
+static const  uint64_t U_DMA_BUF_IOCTL_FLAGS_ ## name ## _MASK  =         \
+    (((hi)-(lo)+1) >= 64) ? ~((uint64_t)0) :                              \
+                            (((uint64_t)1 << ((hi)-(lo)+1)) - 1);         \
 static inline void SET_U_DMA_BUF_IOCTL_FLAGS_ ## name(type *p, int value) \
 {                                                                         \
     const int      shift = U_DMA_BUF_IOCTL_FLAGS_ ## name ## _SHIFT;      \
@@ -60,6 +62,7 @@ DEFINE_U_DMA_BUF_IOCTL_FLAGS(USE_OF_DMA_CONFIG  , u_dma_buf_ioctl_drv_info , 12,
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(USE_OF_RESERVED_MEM, u_dma_buf_ioctl_drv_info , 13, 13)
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(USE_QUIRK_MMAP     , u_dma_buf_ioctl_drv_info , 16, 16)
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(USE_QUIRK_MMAP_PAGE, u_dma_buf_ioctl_drv_info , 17, 17)
+DEFINE_U_DMA_BUF_IOCTL_FLAGS(STATIC_DEVICE_NUM  , u_dma_buf_ioctl_drv_info , 24, 31)
 
 typedef struct {
     uint64_t flags;
@@ -79,6 +82,7 @@ typedef struct {
 
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(SYNC_CMD    , u_dma_buf_ioctl_sync_args,  0,  1)
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(SYNC_DIR    , u_dma_buf_ioctl_sync_args,  2,  3)
+DEFINE_U_DMA_BUF_IOCTL_FLAGS(SYNC_FAST   , u_dma_buf_ioctl_sync_args,  4,  4)
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(SYNC_MODE   , u_dma_buf_ioctl_sync_args,  8, 15)
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(SYNC_OWNER  , u_dma_buf_ioctl_sync_args, 16, 16)
 
@@ -93,6 +97,7 @@ typedef struct {
     uint64_t offset;
     uint64_t addr;
     int      fd;
+    uint8_t  padding[4];
 } u_dma_buf_ioctl_export_args;
 
 DEFINE_U_DMA_BUF_IOCTL_FLAGS(EXPORT_FD_FLAGS, u_dma_buf_ioctl_export_args,  0, 31)

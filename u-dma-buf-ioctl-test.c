@@ -250,6 +250,7 @@ int check_ioctl_set_sync(char* driver_name, int u_dma_buf_fd, u_dma_buf_ioctl_sy
     uint64_t sync_size      = sync_args->size;;
     int      sync_direction = GET_U_DMA_BUF_IOCTL_FLAGS_SYNC_DIR(sync_args);
     int      sync_command   = GET_U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD(sync_args);
+    int      sync_fast      = GET_U_DMA_BUF_IOCTL_FLAGS_SYNC_FAST(sync_args);
 	
     if (1) {
         printf("U_DMA_BUF_IOCTL_SET_SYNC: SET\n");
@@ -257,6 +258,7 @@ int check_ioctl_set_sync(char* driver_name, int u_dma_buf_fd, u_dma_buf_ioctl_sy
 	printf("    sync_size      : %" PRIu64 "\n", sync_size     );
 	printf("    sync_direction : %d\n"         , sync_direction);
 	printf("    sync_command   : %d\n"         , sync_command  );
+	printf("    sync_fast      : %d\n"         , sync_fast     );
     }
     status = xioctl(u_dma_buf_fd, U_DMA_BUF_IOCTL_SET_SYNC, sync_args);
     if (status != 0) {
@@ -278,6 +280,9 @@ int check_ioctl_set_sync(char* driver_name, int u_dma_buf_fd, u_dma_buf_ioctl_sy
 	printf("    sync_direction : %d\n"         , var_sync_direction);
 	printf("    sync_owner     : %d\n"         , var_sync_owner    );
 	printf("    sync_mode      : %d\n"         , var_sync_mode     );
+    }
+    if (sync_fast != 0) {
+        return 0;
     }
     if (var_sync_for_cpu != 0) {
 	printf("%s: sync_for_cpu is not 0\n", __func__);
@@ -763,6 +768,10 @@ int main(int argc, char* argv[])
         printf("U_DMA_BUF_IOCTL_GET_DRV_INFO: \n");
         printf("    driver_version : %s\n", driver_version);
         printf("    ioctl_version  : %d\n", ioctl_version );
+        if (ioctl_version >= 4) {
+            int static_device = GET_U_DMA_BUF_IOCTL_FLAGS_STATIC_DEVICE_NUM(&u_dma_buf_drv_info);
+            printf("    static_device  : %d\n", static_device);
+        }
     }
     //
     // U_DMA_BUF_IOCTL_GET_DEV_INFO
@@ -869,6 +878,27 @@ int main(int argc, char* argv[])
     u_dma_buf_sync_args.size   = u_dma_buf_dev_info.size/4;
     SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD(&u_dma_buf_sync_args, U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD_FOR_CPU);
     SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_DIR(&u_dma_buf_sync_args, 0);
+    status = check_ioctl_set_sync(device_name, u_dma_buf_fd, &u_dma_buf_sync_args);
+    status = check_ioctl_get_sync(device_name, u_dma_buf_fd);
+    //
+    // check_ioctl_set_sync() -> check_ioctl_get_sync() 
+    //
+    memset(&u_dma_buf_sync_args, 0, sizeof(u_dma_buf_sync_args));
+    u_dma_buf_sync_args.offset = u_dma_buf_dev_info.size/2;
+    u_dma_buf_sync_args.size   = u_dma_buf_dev_info.size/2;
+    SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD(&u_dma_buf_sync_args, U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD_FOR_CPU);
+    SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_DIR(&u_dma_buf_sync_args, 0);
+    SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_FAST(&u_dma_buf_sync_args, 1);
+    status = check_ioctl_set_sync(device_name, u_dma_buf_fd, &u_dma_buf_sync_args);
+    //
+    // check_ioctl_set_sync() -> check_ioctl_get_sync() 
+    //
+    memset(&u_dma_buf_sync_args, 0, sizeof(u_dma_buf_sync_args));
+    u_dma_buf_sync_args.offset = u_dma_buf_dev_info.size/2;
+    u_dma_buf_sync_args.size   = u_dma_buf_dev_info.size/2;
+    SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD(&u_dma_buf_sync_args, U_DMA_BUF_IOCTL_FLAGS_SYNC_CMD_FOR_DEVICE);
+    SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_DIR(&u_dma_buf_sync_args, 0);
+    SET_U_DMA_BUF_IOCTL_FLAGS_SYNC_FAST(&u_dma_buf_sync_args, 1);
     status = check_ioctl_set_sync(device_name, u_dma_buf_fd, &u_dma_buf_sync_args);
     status = check_ioctl_get_sync(device_name, u_dma_buf_fd);
 
