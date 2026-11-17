@@ -768,6 +768,10 @@ int main(int argc, char* argv[])
         printf("U_DMA_BUF_IOCTL_GET_DRV_INFO: \n");
         printf("    driver_version : %s\n", driver_version);
         printf("    ioctl_version  : %d\n", ioctl_version );
+        if (ioctl_version >= 4) {
+            int static_device = GET_U_DMA_BUF_IOCTL_FLAGS_STATIC_DEVICE_NUM(&u_dma_buf_drv_info);
+            printf("    static_device  : %d\n", static_device);
+        }
     }
     //
     // U_DMA_BUF_IOCTL_GET_DEV_INFO
